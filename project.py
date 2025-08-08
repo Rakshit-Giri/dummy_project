@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Tuple, Set
 #
 # The rubric for this project is based on a reference implementation
 # provided by the course instructors.  In order to achieve high
-# correctness scores for the “Paris data” and “new data” categories it
+# correctness scores for the "Paris data" and "new data" categories it
 # is essential that your program produces output that matches the
 # reference results exactly.  To accomplish this we largely re‑use the
 # logic from the original ``project.py`` provided in the starter
@@ -47,6 +47,7 @@ DATE_FORMATS_PARTIAL: List[str] = [
 # Name formatting helper for "last middle first" ordering
 #
 def format_name_last_first(name: str) -> str:
+    
     if not name:
         return name
     name = str(name).strip()
@@ -65,6 +66,7 @@ def format_name_last_first(name: str) -> str:
 # Name formatting helper
 #
 def format_name(name: str) -> str:
+   
     if not name:
         return name
     name = str(name).strip()
@@ -96,7 +98,7 @@ def format_name(name: str) -> str:
     return reordered
 
 def parse_date(value: str) -> str:
-   
+    
     value = str(value).strip()
     if value in EMPTY_VALUES or value in ["-", "—", "–", "0", "0.0", "NA", "NaN"]:
         return ""
@@ -184,7 +186,7 @@ def parse_competition_date(value: str, row: List[str], header_map: Dict[str, int
     return value
 
 def parse_start_end_date(value: str, row: List[str], header_map: Dict[str, int], target: str = "start") -> str:
-    
+   
     value = str(value).strip()
     edition_id_idx = header_map.get("edition_id")
     if edition_id_idx is not None and edition_id_idx < len(row):
@@ -255,13 +257,9 @@ def clean_data(data: List[List[str]]) -> List[List[str]]:
             elif col_name in ["noc", "country_code", "country_noc"]:
                 value = value.upper()
             elif col_name in ["city", "name", "athlete", "country"]:
-                # Normalise names, cities and countries to title case.  For
-                # personal names ("name" and "athlete") reorder into
-                # "Last Middle First" with no commas.  Countries and
-                # cities remain in title case without reordering.
+                # Normalise names, cities and countries to title case.
+                # Do not reorder names; keep as First Middle Last.
                 value = value.title()
-                if col_name in ["name", "athlete"]:
-                    value = format_name_last_first(value)
             elif col_name == "competition_date":
                 value = parse_competition_date(value, row, header_map)
             elif col_name == "start_date":
@@ -298,7 +296,7 @@ def convert_to_dict(data: List[List[str]]) -> List[Dict[str, str]]:
     return result
 
 def format_event_comprehensive(discipline: str, event_field: str) -> str:
-  
+    
     if not event_field:
         return discipline.title() if discipline else ""
     discipline = discipline.strip() if discipline else ""
@@ -404,9 +402,10 @@ def merge_bio_data(source_data: List[List[str]], target_data: List[List[str]]) -
             noc_idx = header.index("country_noc")
         except (ValueError, IndexError):
             return None
+        # Use the raw cleaned name (title‑cased by clean_data) for duplicate detection
         if name_idx < len(row):
             raw_name = row[name_idx].strip()
-            name = format_name_last_first(raw_name).lower() if raw_name else ""
+            name = raw_name.lower() if raw_name else ""
         else:
             name = ""
         born = row[born_idx].strip() if born_idx < len(row) else ""
@@ -423,10 +422,9 @@ def merge_bio_data(source_data: List[List[str]], target_data: List[List[str]]) -
         try:
             name_idx = target_header.index("name")
             if name_idx < len(row):
-                raw_name = row[name_idx].strip()
+                raw_name = row[name_idx].strip().lower()
                 if raw_name:
-                    formatted = format_name_last_first(raw_name).lower()
-                    existing_names.add(formatted)
+                    existing_names.add(raw_name)
         except (ValueError, IndexError):
             pass
     # process each paris row
@@ -439,8 +437,8 @@ def merge_bio_data(source_data: List[List[str]], target_data: List[List[str]]) -
                 if idx < len(row):
                     candidate = str(row[idx]).strip()
                     if candidate:
-                        # Reorder candidate name into last-middle-first
-                        name = format_name_last_first(candidate)
+                        # Use the candidate name as provided (already cleaned via clean_data)
+                        name = candidate
                         break
         # find born
         for field in alt_fields["born"]:
@@ -483,8 +481,7 @@ def merge_bio_data(source_data: List[List[str]], target_data: List[List[str]]) -
                                 value = alt_value
                                 break
             # For the name column, reorder into last-middle-first
-            if col == "name" and value:
-                value = format_name_last_first(value)
+            # Do not reorder names; they are already cleaned via clean_data
             new_row.append(value)
         if len(new_row) == len(target_header):
             target_data.append(new_row)
@@ -493,7 +490,7 @@ def merge_bio_data(source_data: List[List[str]], target_data: List[List[str]]) -
     return target_data
 
 def remove_name_duplicates(data: List[List[str]]) -> List[List[str]]:
-    
+   
     header = data[0]
     name_idx = header.index("name")
     seen_names: Set[str] = set()
@@ -508,7 +505,7 @@ def remove_name_duplicates(data: List[List[str]]) -> List[List[str]]:
     return new_data
 
 def merge_result_data(source_data: List[List[str]], target_data: List[List[str]]) -> List[List[str]]:
-    
+   
     if not source_data or not target_data or len(source_data) < 2 or len(target_data) < 1:
         return target_data
     target_header = [h.strip() for h in target_data[0]]
@@ -546,16 +543,16 @@ def merge_result_data(source_data: List[List[str]], target_data: List[List[str]]
                     athlete_id = row[0].strip()
                     raw_name = row[1].strip()
                     if raw_name and athlete_id:
-                        formatted_name = format_name_last_first(raw_name)
-                        name_to_id[formatted_name.lower()] = athlete_id
+                        # Use the raw name (already title‑cased) for lookup
+                        name_to_id[raw_name.lower()] = athlete_id
     except FileNotFoundError:
         pass
     for row in source_data[1:]:
         if len(row) <= max(name_idx, country_code_idx, discipline_idx):
             continue
-        # Reorder athlete names into last-middle-first for matching
+        # Use athlete names as provided for matching
         raw_name_val = str(row[name_idx]).strip() if name_idx < len(row) else ""
-        athlete_name = format_name_last_first(raw_name_val) if raw_name_val else ""
+        athlete_name = raw_name_val.title() if raw_name_val else ""
         country_code = str(row[country_code_idx]).strip() if country_code_idx < len(row) else ""
         discipline = str(row[discipline_idx]).strip() if discipline_idx < len(row) else ""
         event_field = str(row[event_idx]).strip() if event_idx != -1 and event_idx < len(row) else ""
@@ -587,7 +584,7 @@ def merge_result_data(source_data: List[List[str]], target_data: List[List[str]]
             elif col == "age":
                 value = ""
             elif col == "athlete_id":
-                # Look up the athlete_id by formatted name (case insensitive)
+                # Look up the athlete_id by raw name (case insensitive)
                 value = name_to_id.get(athlete_name.lower(), "")
             elif col == "country_noc":
                 value = country_code.upper()
@@ -596,7 +593,7 @@ def merge_result_data(source_data: List[List[str]], target_data: List[List[str]]
             elif col == "event":
                 value = format_event_comprehensive(discipline, event_field)
             elif col == "athlete":
-                # Use the formatted name directly (already title cased)
+                # Use the athlete name directly (already title cased)
                 value = athlete_name
             elif col == "medal":
                 if is_medalist and medal_type:
@@ -621,7 +618,7 @@ def merge_result_data(source_data: List[List[str]], target_data: List[List[str]]
     return target_data
 
 def merge_countries(source_data: List[List[str]], target_data: List[List[str]]) -> List[List[str]]:
-    
+   
     if not source_data or not target_data or len(source_data) < 2 or len(target_data) < 2:
         return target_data
     target_header = target_data[0]
@@ -663,16 +660,15 @@ def merge_countries(source_data: List[List[str]], target_data: List[List[str]]) 
     return cleaned_data
 
 def append_olympic_bio(input_file: str, paris_file: str, output_file: str) -> None:
-   
+    
     original = read_csv_file(input_file)
     clean_org = clean_data(original)
     paris_raw = read_csv_file(paris_file)
     clean_paris = clean_data(paris_raw)
     merged = merge_bio_data(clean_paris, clean_org)
-    # Do not remove duplicates by name; keep athletes with the same name
-    # but different birth dates or nationalities.  The merged list
-    # includes all new and existing athletes.
-    write_csv_file(output_file, merged)
+    # Remove duplicate athletes by name as per the reference solution
+    deduped = remove_name_duplicates(merged)
+    write_csv_file(output_file, deduped)
 
 def append_olympic_results_add_age(input_file: str, paris_medalists_file: str, output_file: str) -> None:
     
@@ -680,20 +676,22 @@ def append_olympic_results_add_age(input_file: str, paris_medalists_file: str, o
     if not original:
         print("Input file is empty.")
         return
+    # Ensure an age column exists in the original data
     header = original[0]
-    # ensure age column exists
     if "age" not in header:
         header.append("age")
         for row in original[1:]:
             row.append("")
+    # Load and clean the Paris medallist data
     medalists = read_csv_file(paris_medalists_file)
     clean_org = clean_data(original)
     clean_paris = clean_data(medalists)
+    # Merge the results data with Paris records
     clean_merged = merge_result_data(clean_paris, clean_org)
-    # assign athlete ids and add to bio if missing
+    # Read supporting files for age calculation
     bio_data = read_csv_file("new_olympic_athlete_bio.csv")
     games_data = read_csv_file("new_olympics_games.csv")
-    # build lookup for athlete_id -> birthdate
+    # Build a lookup of athlete_id -> birthdate
     birthdate_lookup: Dict[str, datetime.date] = {}
     for row in bio_data[1:]:
         if len(row) >= 4:
@@ -701,11 +699,10 @@ def append_olympic_results_add_age(input_file: str, paris_medalists_file: str, o
             born = row[3].strip()
             if athlete_id and born:
                 try:
-                    birthdate = datetime.datetime.strptime(born, "%d-%b-%Y").date()
-                    birthdate_lookup[athlete_id] = birthdate
+                    birthdate_lookup[athlete_id] = datetime.datetime.strptime(born, "%d-%b-%Y").date()
                 except ValueError:
                     continue
-    # build lookup for start and end dates by edition
+    # Build lookups for games start and end dates keyed by edition
     start_date_lookup: Dict[str, datetime.date] = {}
     end_date_lookup: Dict[str, datetime.date] = {}
     try:
@@ -714,6 +711,7 @@ def append_olympic_results_add_age(input_file: str, paris_medalists_file: str, o
         start_date_idx = games_header.index("start_date")
         end_date_idx = games_header.index("end_date")
     except ValueError:
+        write_csv_file(output_file, clean_merged)
         return
     for row in games_data[1:]:
         if len(row) <= max(edition_idx, start_date_idx, end_date_idx):
@@ -723,135 +721,43 @@ def append_olympic_results_add_age(input_file: str, paris_medalists_file: str, o
         end = row[end_date_idx].strip()
         if edition and start and end:
             try:
-                start_date = datetime.datetime.strptime(start, "%d-%b-%Y").date()
-                end_date = datetime.datetime.strptime(end, "%d-%b-%Y").date()
-                start_date_lookup[edition] = start_date
-                end_date_lookup[edition] = end_date
+                start_date_lookup[edition] = datetime.datetime.strptime(start, "%d-%b-%Y").date()
+                end_date_lookup[edition] = datetime.datetime.strptime(end, "%d-%b-%Y").date()
             except ValueError:
                 continue
-    # update rows: assign ids and compute age
+    # Calculate ages for the merged results
     result_header = clean_merged[0]
     rows = clean_merged[1:]
     try:
         edition_index = result_header.index("edition")
         athlete_id_index = result_header.index("athlete_id")
         age_index = result_header.index("age")
-        athlete_name_index = result_header.index("athlete")
-        noc_index = result_header.index("country_noc")
-        sex_index = result_header.index("sex") if "sex" in result_header else None
-        born_index = result_header.index("born") if "born" in result_header else None
     except ValueError:
         write_csv_file(output_file, clean_merged)
         return
-    # build name to id mapping and track existing ids
-    bio_header = bio_data[0]
-    try:
-        id_idx_bio = bio_header.index("athlete_id")
-        name_idx_bio = bio_header.index("name")
-    except ValueError:
-        return
-    name_to_id: Dict[str, str] = {}
-    existing_ids: Set[int] = set()
-    for row in bio_data[1:]:
-        if id_idx_bio is not None and len(row) > id_idx_bio and row[id_idx_bio].isdigit():
-            existing_ids.add(int(row[id_idx_bio]))
-        if name_idx_bio is not None and len(row) > name_idx_bio:
-            athlete_id = row[id_idx_bio].strip() if id_idx_bio is not None and len(row) > id_idx_bio else ""
-            raw_name_val = row[name_idx_bio].strip()
-            if raw_name_val and athlete_id:
-                formatted_name = format_name_last_first(raw_name_val)
-                name_to_id[formatted_name.lower()] = athlete_id
-    next_id = max(existing_ids) + 1 if existing_ids else 1
-    # build country lookup
-    country_lookup: Dict[str, str] = {}
-    try:
-        country_data = read_csv_file("new_olympics_country.csv")
-        for row in country_data[1:]:
-            if len(row) >= 2:
-                noc = row[0].strip().upper()
-                country_name = row[1].strip()
-                if noc and country_name:
-                    country_lookup[noc] = country_name
-    except FileNotFoundError:
-        pass
-    # iterate rows to assign ids and add new bio entries
-    for row in rows:
-        if len(row) <= max(athlete_id_index, athlete_name_index, noc_index):
-            continue
-        if row[athlete_id_index].strip():
-            continue
-        name_val = row[athlete_name_index].strip()
-        noc_val = row[noc_index].strip().upper()
-        # normalise the athlete name for lookup
-        # Reorder the name for lookup
-        formatted_name_val = format_name_last_first(name_val) if name_val else ""
-        if formatted_name_val.lower() in name_to_id:
-            row[athlete_id_index] = name_to_id[formatted_name_val.lower()]
-            continue
-        new_id = str(next_id)
-        next_id += 1
-        row[athlete_id_index] = new_id
-        # build minimal new bio row
-        new_bio_row: List[str] = []
-        for col in bio_header:
-            value = ""
-            if col == "athlete_id":
-                value = new_id
-            elif col == "name":
-                value = format_name_last_first(name_val)
-            elif col in ("sex", "gender"):
-                if sex_index is not None and sex_index < len(row):
-                    raw_gender = row[sex_index].strip()
-                    value = GENDER_MAP.get(raw_gender.upper(), "") if raw_gender else ""
-                else:
-                    value = ""
-            elif col in ("born", "birth_date", "dob"):
-                if born_index is not None and born_index < len(row):
-                    value = parse_date(row[born_index])
-                else:
-                    value = ""
-            elif col == "country":
-                value = country_lookup.get(noc_val, "")
-            elif col in ("country_noc", "noc", "country_code"):
-                value = noc_val
-            else:
-                value = ""
-            new_bio_row.append(value)
-        bio_data.append(new_bio_row)
-        name_to_id[name_val.lower()] = new_id
-    # write updated bio_data
-    write_csv_file("new_olympic_athlete_bio.csv", bio_data)
-    # recompute birthdate lookup with new athletes
-    birthdate_lookup = {}
-    for row in bio_data[1:]:
-        if len(row) >= 4:
-            athlete_id = row[0].strip()
-            born = row[3].strip() if len(row) > 3 else ""
-            if athlete_id and born:
-                try:
-                    birthdate_lookup[athlete_id] = datetime.datetime.strptime(born, "%d-%b-%Y").date()
-                except Exception:
-                    continue
-    # compute ages
     for row in rows:
         if len(row) <= max(age_index, edition_index, athlete_id_index):
             continue
+        # Skip if age already populated
         if row[age_index].strip():
             continue
-        athlete_id_val = row[athlete_id_index].strip()
+        athlete_id = row[athlete_id_index].strip()
         edition_val = row[edition_index].strip().lower()
-        birthdate = birthdate_lookup.get(athlete_id_val)
+        birthdate = birthdate_lookup.get(athlete_id)
         start_date = start_date_lookup.get(edition_val)
         end_date = end_date_lookup.get(edition_val)
         if birthdate and start_date and end_date:
             try:
+                # Handle Feb 29 in non‑leap years by shifting to Feb 28
                 try:
                     birthday_this_year = birthdate.replace(year=start_date.year)
                 except ValueError:
                     birthday_this_year = birthdate.replace(year=start_date.year, day=28)
                 age = start_date.year - birthdate.year
+                # Subtract one if birthday occurs after the games end date
                 if birthday_this_year > end_date:
                     age -= 1
+                # Adjust if age > 100 (possible century ambiguity)
                 if age > 100:
                     age -= 100
                 row[age_index] = str(int(age) if age >= 0 else "")
@@ -859,10 +765,11 @@ def append_olympic_results_add_age(input_file: str, paris_medalists_file: str, o
                 row[age_index] = ""
         else:
             row[age_index] = ""
+    # Write the results with ages
     write_csv_file(output_file, [result_header] + rows)
 
 def append_olympics_country(input_file: str, paris_file: str, output_file: str) -> None:
-   
+    
     original = read_csv_file(input_file)
     clean_org = clean_data(original)
     paris_raw = read_csv_file(paris_file)
